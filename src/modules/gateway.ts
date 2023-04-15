@@ -1,7 +1,7 @@
-import { APIEmbed } from 'discord.js';
-import { evalExecute } from '../index';
-import config from '../data/config';
 import { sendCrossPost } from './crosspost';
+import { evalExecute } from '../index';
+import { APIEmbed } from 'discord.js';
+import config from '../data/config';
 import LoggerModule from './logger';
 import WebSocket from 'ws';
 
@@ -13,7 +13,7 @@ export default class GatewayClient {
 
 	constructor() {
 		try {
-			this.socket = new WebSocket(config.gateway.url);
+			this.socket = new WebSocket(config.gateway.url, { protocolVersion: 13 });
 			this.connect();
 		} catch (error) {
 			LoggerModule('Gateway', 'Failed to connect to the gateway server.\n', 'red');
@@ -23,7 +23,7 @@ export default class GatewayClient {
 	private tryReconnect() {
 		this.reconectInterval = setInterval(() => {
 			try {
-				this.socket = new WebSocket(config.gateway.url);
+				this.socket = new WebSocket(config.gateway.url, { protocolVersion: 13 });
 				this.connect();
 			} catch (error) {
 				LoggerModule('Gateway', 'Failed to reconnect to the gateway server.\n', 'red');
@@ -56,6 +56,7 @@ export default class GatewayClient {
 		this.socket?.on('close', () => {
 			LoggerModule('Gateway', 'Gateway connection closed.\n', 'red');
 			setTimeout(() => this.tryReconnect(), 5000); // 5 seconds
+			this.socket?.removeAllListeners();
 
 			if (this.heartbeatInterval) {
 				clearInterval(this.heartbeatInterval);
@@ -66,6 +67,7 @@ export default class GatewayClient {
 		this.socket?.on('error', (error) => {
 			LoggerModule('Gateway', `An error has occurred while connecting to the gateway server.\n${error}`, 'red');
 			setTimeout(() => this.connect(), 10000); // 10 seconds
+			this.socket?.removeAllListeners();
 		});
 	}
 
