@@ -29,7 +29,7 @@ export default class DataManager {
 
 	private loadCacheSweeper(): void {
 		setInterval(() => {
-			if (config.dev) {
+			if (config.dev.mode) {
 				const guild = deleteFromCollection(this.guildData);
 				LoggerModule('Cache Sweeper', `Successfully swept the cache. Deleted ${guild} items.`, 'grey');
 			} else deleteFromCollection(this.guildData);
