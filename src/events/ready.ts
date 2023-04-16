@@ -37,6 +37,7 @@ export default {
 					interactionsData.push({
 						name: command.name,
 						type: command.type,
+						description: command.description,
 					});
 				} else if (command?.register !== false) {
 					if (command.id) sendData.id = command.id;
