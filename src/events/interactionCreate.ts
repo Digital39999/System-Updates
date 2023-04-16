@@ -1,5 +1,6 @@
 import { AllInteractionTypes, CustomClient, EventType } from '../data/typings';
 import { PermissionsBitField } from 'discord.js';
+import { catchClientError } from '../cluster';
 
 export default {
 	name: 'interactionCreate',
@@ -10,7 +11,7 @@ export default {
 
 	run: async (client: CustomClient, interaction: AllInteractionTypes) => {
 		if (interaction.isChatInputCommand()) {
-			const command = client.slashCommands?.get(interaction.commandName);
+			const command = client.slashCommands?.data?.get(interaction.commandName);
 
 			if (!command) return interaction.reply({
 				content: client.emoji?.fromMyServer.error + ` • I cannot find that command in my cache, [contact](${client.config?.link.support}) developers for help.`,
@@ -36,7 +37,7 @@ export default {
 				if (command?.run) await command.run(client, interaction);
 			} catch (error: unknown) {
 				if (error?.toString().includes('Unknown')) return;
-				else client.functions?.error(error);
+				else catchClientError(error as Error);
 
 				try {
 					return interaction.reply({

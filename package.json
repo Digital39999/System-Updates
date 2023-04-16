@@ -14,7 +14,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"discord-hybrid-sharding": "^2.1.2",
-		"discord.js": "^14.8.0",
+		"discord.js": "^14.9.0",
 		"mongoose": "^7.0.3"
 	},
 	"devDependencies": {

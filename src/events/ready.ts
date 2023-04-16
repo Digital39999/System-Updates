@@ -30,7 +30,7 @@ export default {
 		else {
 			const interactionsData: SlashCommandsType[] = [];
 
-			Array.from(client?.slashCommands?.values() || []).map((command: SlashCommandsType) => {
+			Array.from(client?.slashCommands?.data?.values() || []).map((command: SlashCommandsType) => {
 				const sendData: SlashCommandsType = { name: command.name };
 
 				if (command?.context) {
@@ -53,10 +53,10 @@ export default {
 
 			await client.application?.commands.set(interactionsData as ApplicationCommandDataResolvable[]).then((getOutput: Collection<string, ApplicationCommand>) => {
 				getOutput.map((command: ApplicationCommand) => {
-					const commandData: SlashCommandsType = client?.slashCommands?.get(command.name) as SlashCommandsType;
+					const commandData: SlashCommandsType = client?.slashCommands?.data?.get(command.name) as SlashCommandsType;
 					if (!commandData) return;
 
-					commandData.id = command.id; client?.slashCommands?.set(command.name, commandData);
+					commandData.id = command.id; client?.slashCommands?.data?.set(command.name, commandData);
 				});
 			});
 		}

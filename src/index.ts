@@ -65,7 +65,7 @@ async function startLoading(manager: CustomManager) {
 export function catchError(error: Error) {
 	if (error?.name?.includes('ExperimentalWarning') || error?.name?.includes('Unknown interaction')) return;
 
-	LoggerModule('Client', 'An error has occurred.', 'red');
+	LoggerModule('Manager', 'An error has occurred.', 'red');
 	console.error(error);
 }
 

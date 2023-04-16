@@ -34,7 +34,7 @@ export interface CustomClient extends Client {
 	emoji?: EmojiType;
 
 	cluster?: ClusterClient<DjsDiscordClient>;
-	slashCommands?: Map<string, SlashCommandsType>;
+	slashCommands?: { data: Map<string, SlashCommandsType>; reload?: (client: CustomClient) => void; }
 
 	_data?: typeof CustomCacheFunctions;
 
@@ -47,7 +47,6 @@ export interface CustomClient extends Client {
 	followArray?: { key: string; value: string; }[];
 
 	functions?: {
-		error: (err: unknown) => void;
 		channelName: (channel: string) => string;
 		selectOptions: (slashChannels: string[]) => APISelectMenuOption[];
 		createArray: () => string[];
@@ -56,13 +55,13 @@ export interface CustomClient extends Client {
 }
 
 export type EventType = {
-	name: keyof ClientEvents;
+	name: keyof ClientEvents & 'raw';
 	options: {
 		emit: boolean;
 		once: boolean;
 	}
 
-	run: (client: CustomClient, ...args: unknown[]) => unknown;
+	run: <T extends keyof ClientEvents>(client: CustomClient, ...args: ClientEvents[T]) => unknown;
 }
 
 export type TextCommandsType = {

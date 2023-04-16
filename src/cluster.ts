@@ -1,10 +1,9 @@
 import Discord, { GatewayIntentBits, ActivityType, APISelectMenuOption, Options } from 'discord.js';
-import { CustomClient, SlashCommandsType } from './data/typings';
 import { ClusterClient, getInfo } from 'discord-hybrid-sharding';
 import { CustomCacheFunctions } from './modules/utils';
+import { CustomClient } from './data/typings';
 import LoggerModule from './modules/logger';
 import getEmojis from './data/emojis';
-import { readdirSync } from 'node:fs';
 import config from './data/config';
 import path from 'node:path';
 
@@ -58,9 +57,18 @@ client.cluster = new ClusterClient(client);
 
 getEmojis(undefined, false, (data) => { client.emoji = data; });
 
+export function catchClientError(error: Error) {
+	if (error?.name?.includes('ExperimentalWarning') || error?.name?.includes('Unknown interaction')) return;
+
+	LoggerModule('Client', 'An error has occurred.', 'red');
+	console.error(error);
+}
+
+/* ----------------------------------- Utils ----------------------------------- */
+
 client.config = config;
 client.database = { State: true };
-client.slashCommands = new Map();
+client.slashCommands = { data: new Map() };
 client._data = CustomCacheFunctions;
 
 client.followArray = Object.entries(config.follow_channels).map(([key, value]) => {
@@ -68,9 +76,6 @@ client.followArray = Object.entries(config.follow_channels).map(([key, value]) =
 });
 
 client.functions = {
-	error: (err: unknown) => {
-		LoggerModule('Client Error', 'Check Below:', 'red'); console.error(err);
-	},
 	channelName: (channel: string) => {
 		switch (channel) {
 			case 'testing_channel': return 'Testing Channel Updates';
@@ -135,7 +140,7 @@ client.functions = {
 		return array;
 	},
 	getCommand: (name: string) => {
-		const command = client.slashCommands?.get(name);
+		const command = client.slashCommands?.data?.get(name);
 		return command?.id ? `</${command.name}:${command.id}>` : `\`/${name}\``;
 	},
 };
@@ -144,30 +149,9 @@ client.channelArray = client.functions?.createArray();
 
 /* ----------------------------------- Handlers ----------------------------------- */
 
-try {
-	readdirSync(path.join(__dirname, 'commands')).filter((file: string) => file.endsWith('.js')).map(async (command: string) => {
-		const pull: SlashCommandsType = await import(path.join(__dirname, 'commands', command)).then((command) => command.default);
-
-		if (pull?.name) client?.slashCommands?.set(pull.name, pull);
-	});
-} catch (error: unknown) {
-	client.functions?.error(error);
-}
-
-try {
-	readdirSync(path.join(__dirname, 'events')).filter((file: string) => file.endsWith('.js')).map(async (file: string) => {
-		const pull = await import(path.join(__dirname, 'events', file)).then((event) => event.default);
-
-		if (pull.options?.emit) {
-			const argumentsFunction = (...args: unknown[]) => pull.run(client, ...args);
-
-			if (pull.options.once) client.once(pull.name, argumentsFunction);
-			else client.on(pull.name, argumentsFunction);
-		}
-	});
-} catch (error: unknown) {
-	client.functions?.error(error);
-}
+['loadEvents', 'slashCommands'].map(async (handler) => {
+	await import(path.join(__dirname, '.', 'handlers', handler)).then((module) => module.default(client));
+});
 
 /* ----------------------------------- Exports & Errors ----------------------------------- */
 
