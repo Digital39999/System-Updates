@@ -7,7 +7,6 @@ export default function(client: CustomClient) {
 		const pull: EventType = await import(path.join(__dirname, '..', 'events', file)).then((file) => file.default);
 
 		if (pull.options.emit) {
-
 			if (pull.options.once) client.once(pull.name, (...args) => pull.run(client, ...args) as unknown as void);
 			else client.on(pull.name, (...args) => pull.run(client, ...args) as unknown as void);
 		}

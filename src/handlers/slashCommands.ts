@@ -6,6 +6,7 @@ import path from 'node:path';
 export default function(client: CustomClient) {
 	try {
 		if (client.slashCommands) client.slashCommands.reload = reload;
+
 		readdirSync(path.join(__dirname, '..', 'commands')).filter((file: string) => file.endsWith('.js')).map(async (command: string) => {
 			const pull: SlashCommandsType = await import(path.join(__dirname, '..', 'commands', command)).then((file) => file.default);
 			if (pull?.name) client?.slashCommands?.data.set(pull.name, pull);
@@ -24,6 +25,7 @@ export function reload(client: CustomClient) {
 			delete require.cache[require.resolve(path.join(__dirname, '..', 'commands', command))];
 
 			const pull: SlashCommandsType = await import(path.join(__dirname, '..', 'commands', command)).then((file) => file.default);
+
 			if (pull?.name) {
 				const commandId: { name: string; id: string; } | undefined = commandIds.find((command: { name: string; id: string; }) => command.name === pull.name);
 				if (commandId) pull.id = commandId.id; client?.slashCommands?.data.set(pull.name, pull);
