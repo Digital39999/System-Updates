@@ -22,12 +22,15 @@ export default class DataManager {
 		DataManager.nullHitter = [];
 
 		this.loadCacheSweeper();
+
 		this.guildData = new Map();
 	}
 
 	/* ----------------------------------- Cache Functions ----------------------------------- */
 
 	private loadCacheSweeper(): void {
+		if (!config.dev.cache) return;
+
 		setInterval(() => {
 			if (config.dev.mode) {
 				const guild = deleteFromCollection(this.guildData);
@@ -178,6 +181,7 @@ export default class DataManager {
 
 	async getAllData(inputData?: GuildStructureType | FilterQuery<GuildStructureType>, mognoose?: boolean, directMongoose?: boolean): Promise<GuildStructureType[] | null> {
 		if (this.manager.database?.State !== true) return null;
+		if (!config.dev.cache) directMongoose = true;
 
 		if (directMongoose) {
 			const data: GuildStructureType[] | null = await GuildModel.find(inputData || {})?.lean().catch((): null => null) as GuildStructureType[] | null;
