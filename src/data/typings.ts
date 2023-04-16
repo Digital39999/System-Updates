@@ -1,4 +1,4 @@
-import { APISelectMenuOption, ApplicationCommandOptionType, ApplicationCommandType, ButtonInteraction, ChannelSelectMenuInteraction, ChatInputCommandInteraction, Client, ClientEvents, CommandInteraction, ContextMenuCommandInteraction, Message, MessageContextMenuCommandInteraction, ModalSubmitInteraction, PermissionResolvable, RoleSelectMenuInteraction, SelectMenuInteraction, UserSelectMenuInteraction } from 'discord.js';
+import { APIApplicationCommand, APISelectMenuOption, ButtonInteraction, ChannelSelectMenuInteraction, ChatInputCommandInteraction, Client, ClientEvents, CommandInteraction, ContextMenuCommandInteraction, Message, MessageContextMenuCommandInteraction, ModalSubmitInteraction, PermissionResolvable, RoleSelectMenuInteraction, SelectMenuInteraction, UserSelectMenuInteraction } from 'discord.js';
 import { ClusterClient, ClusterManager, DjsDiscordClient } from 'discord-hybrid-sharding';
 import { CustomCacheFunctions } from '../modules/utils';
 import DataManager from '../modules/dataManager';
@@ -75,28 +75,10 @@ export type TextCommandsType = {
 	run: (client: CustomClient, message: Message, args: string[]) => unknown;
 }
 
-export type SlashCommandsType = {
-	id?: string;
-	name: string;
+export type SlashCommandsType = APIApplicationCommand & {
 	usage?: string;
 	register?: boolean;
-	type?: ApplicationCommandType;
 	context?: boolean;
-	default_permission?: number;
-	description?: string;
-	dm_permission?: boolean;
-	options?: {
-		name?: string;
-		description?: string;
-		required?: boolean;
-		type?: ApplicationCommandOptionType;
-		min_value?: number;
-		max_value?: number;
-		choices?: {
-			name?: string;
-			value?: string;
-		}[];
-	}[];
 	permissions?: {
 		user?: PermissionResolvable[];
 		client?: PermissionResolvable[];

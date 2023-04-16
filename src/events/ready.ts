@@ -28,10 +28,10 @@ export default {
 
 		if (!client.config?.dev.slash) LoggerModule(`Cluster ${client.cluster?.id}`, 'Slash commands are disabled.', 'grey');
 		else {
-			const interactionsData: SlashCommandsType[] = [];
+			const interactionsData: Partial<SlashCommandsType>[] = [];
 
 			Array.from(client?.slashCommands?.data?.values() || []).map((command: SlashCommandsType) => {
-				const sendData: SlashCommandsType = { name: command.name };
+				const sendData: Partial<SlashCommandsType> = { name: command.name };
 
 				if (command?.context) {
 					interactionsData.push({
@@ -45,7 +45,7 @@ export default {
 					if (command.options) sendData.options = command.options;
 					if (command.description) sendData.description = command.description;
 					if (command.dm_permission) sendData.dm_permission = command.dm_permission || false;
-					if (command.permissions?.user) sendData.default_permission = parseInt(new PermissionsBitField().add(command.permissions?.user).bitfield.toString());
+					if (command.permissions?.user) sendData.default_member_permissions = new PermissionsBitField().add(command.permissions?.user).bitfield.toString();
 
 					interactionsData.push(sendData);
 				}

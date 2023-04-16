@@ -33,6 +33,7 @@ export default {
 				usedCommand?.run?.(client, interaction);
 			} catch (error: unknown) {
 				catchClientError(error as Error);
+
 				interaction[interaction.replied ? 'editReply' : 'reply']({
 					content: client.emoji?.fromMyServer.error + ' • An error occurred while executing this command.',
 				}).catch((): null => null);

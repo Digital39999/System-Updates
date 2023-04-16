@@ -6,8 +6,10 @@ import getEmojis from '../data/emojis';
 export default {
 	name: 'updates',
 	description: 'View all available updates from System Updates.',
-	bot_premissions: ['ReadMessageHistory', 'EmbedLinks', 'ViewChannel', 'SendMessages'],
-	user_permissions: ['ManageGuild'],
+	permissions: {
+		client: ['SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'ViewChannel'],
+		user: ['ManageGuild'],
+	},
 	options: [{
 		name: 'channel',
 		description: 'To which channel would you like to follow updates?',
