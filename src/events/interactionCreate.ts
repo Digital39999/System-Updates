@@ -1,6 +1,7 @@
 import { AllInteractionTypes, CustomClient, EventType } from '../data/typings';
-import { PermissionsBitField } from 'discord.js';
+import { PermissionsBitField, PermissionsString } from 'discord.js';
 import { catchClientError } from '../cluster';
+import config from '../data/config';
 
 export default {
 	name: 'interactionCreate',
@@ -10,45 +11,31 @@ export default {
 	},
 
 	run: async (client: CustomClient, interaction: AllInteractionTypes) => {
-		if (interaction.isChatInputCommand()) {
-			const command = client.slashCommands?.data?.get(interaction.commandName);
-
-			if (!command) return interaction.reply({
-				content: client.emoji?.fromMyServer.error + ` • I cannot find that command in my cache, [contact](${client.config?.link.support}) developers for help.`,
+		if (interaction.isChatInputCommand() || interaction.isContextMenuCommand()) {
+			const usedCommand = client.slashCommands?.data.get(interaction.commandName);
+			if (!usedCommand) return interaction.reply({
+				content: client.emoji?.fromMyServer.error + ' • This command is not registered.',
 				ephemeral: true,
 			});
 
-			if (!interaction.guild && interaction.commandName !== 'help') return interaction.reply({
-				content: client.emoji?.fromMyServer.error + ' • Guild only command.',
-				ephemeral: true,
+			let hasPerms: { maybe: boolean, me?: boolean, which?: PermissionsString[] } = { maybe: true };
+
+			if (!config?.dev.users.includes(interaction.user.id)) {
+				if (usedCommand.permissions?.user && !(interaction.member?.permissions as PermissionsBitField).has(usedCommand.permissions.user)) hasPerms = { maybe: false, me: false, which: (interaction.member?.permissions as PermissionsBitField).missing(usedCommand.permissions.user) };
+				if (usedCommand.permissions?.client && !interaction.guild?.members.me?.permissions.has(usedCommand.permissions.client)) hasPerms = { maybe: false, me: true, which: interaction.guild?.members.me?.permissions.missing(usedCommand.permissions.client) };
+			}
+
+			if (!hasPerms.maybe) return interaction.reply({
+				content: client.emoji?.fromMyServer.warn + ' • ' + (hasPerms.me ? 'I don\'t have enough permissions to execute this command!' : 'You don\'t have enough permissions to execute this command!') + (hasPerms.which ? ` Missing permissions: \`${hasPerms.which.join('`, `')}\`` : ''),
 			});
 
 			try {
-				if (command?.permissions?.user) if (!(interaction.member?.permissions as PermissionsBitField)?.has(command?.permissions?.user) && !client.config?.dev.users.includes(interaction.user.id)) return interaction.reply({
-					content: client.emoji?.fromMyServer.error + ` • You need \`${(command?.permissions?.user as unknown as string[]).join(', ')}\` permission(s) to use this command.`,
-					ephemeral: true,
-				});
-
-				if (command?.permissions?.client) if (!interaction.guild?.members.me?.permissions.has(command?.permissions?.client)) return interaction.reply({
-					content: client.emoji?.fromMyServer.error + ` • I need \`${(command?.permissions?.client as unknown as string[])?.join(', ')}\` permission(s) to display this command.`,
-					ephemeral: true,
-				});
-
-				if (command?.run) await command.run(client, interaction);
+				usedCommand?.run?.(client, interaction);
 			} catch (error: unknown) {
-				if (error?.toString().includes('Unknown')) return;
-				else catchClientError(error as Error);
-
-				try {
-					return interaction.reply({
-						content: client.emoji?.fromMyServer.error + ` • Error while loading command, please [contact](${client.config?.link.support}) developer.`,
-						ephemeral: true,
-					});
-				} catch {
-					return interaction.editReply({
-						content: client.emoji?.fromMyServer.error + ` • Error while loading command, please [contact](${client.config?.link.support}) developer.`,
-					});
-				}
+				catchClientError(error as Error);
+				interaction[interaction.replied ? 'editReply' : 'reply']({
+					content: client.emoji?.fromMyServer.error + ' • An error occurred while executing this command.',
+				}).catch((): null => null);
 			}
 		}
 
