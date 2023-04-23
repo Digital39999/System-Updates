@@ -1,4 +1,4 @@
-import { CommandInteraction, CommandInteractionOptionResolver, PermissionsString, StringSelectMenuInteraction } from 'discord.js';
+import { CommandInteraction, CommandInteractionOptionResolver, PermissionsString, StringSelectMenuInteraction, TextChannel } from 'discord.js';
 import { CH, CustomClient, ExtendedHandlerOptions, GuildStructureType, SlashCommandsType } from '../data/typings';
 import { createEmoji, errorHandlerMenu, quickCollector } from '../modules/utils';
 import getEmojis from '../data/emojis';
@@ -7,7 +7,6 @@ export default {
 	name: 'updates',
 	description: 'View all available updates from System Updates.',
 	permissions: {
-		client: ['SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'ViewChannel'],
 		user: ['ManageGuild'],
 	},
 	options: [{
@@ -27,7 +26,14 @@ export default {
 		const hidden: boolean = (interaction.options as CommandInteractionOptionResolver).getBoolean('hidden') as boolean;
 		await interaction.deferReply({ ephemeral: hidden ?? false });
 
-		const channel = (interaction.options as CommandInteractionOptionResolver).getChannel('channel');
+		const channel = (interaction.options as CommandInteractionOptionResolver).getChannel('channel') as TextChannel;
+		if (!channel) return interaction.editReply({
+			content: getEmojis('fromMyServer.error') + ' • No channel was provided.',
+		});
+
+		if (!interaction.guild?.members.me?.permissionsIn(channel.id).has(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis'])) return interaction.editReply({
+			content: `${getEmojis('fromMyServer.warn')} • Missing permissions (<#${channel.id}>): ${interaction.guild?.members.me?.permissionsIn(channel.id).missing(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis'])?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`,
+		});
 
 		await updatesHandlerExtended({
 			client, interaction, slashData: {

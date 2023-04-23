@@ -21,8 +21,8 @@ export default {
 			let hasPerms: { maybe: boolean, me?: boolean, which?: PermissionsString[] } = { maybe: true };
 
 			if (!config?.dev.users.includes(interaction.user.id)) {
-				if (usedCommand.permissions?.user && !(interaction.member?.permissions as PermissionsBitField).has(usedCommand.permissions.user)) hasPerms = { maybe: false, me: false, which: (interaction.member?.permissions as PermissionsBitField).missing(usedCommand.permissions.user) };
-				if (usedCommand.permissions?.client && !interaction.guild?.members.me?.permissions.has(usedCommand.permissions.client)) hasPerms = { maybe: false, me: true, which: interaction.guild?.members.me?.permissions.missing(usedCommand.permissions.client) };
+				if (usedCommand.permissions?.user && !(interaction.memberPermissions?.has(usedCommand.permissions.user))) hasPerms = { maybe: false, me: false, which: (interaction.member?.permissions as PermissionsBitField).missing(usedCommand.permissions.user) };
+				if (usedCommand.permissions?.client && !interaction.appPermissions?.has(usedCommand.permissions.client)) hasPerms = { maybe: false, me: true, which: interaction.guild?.members.me?.permissions.missing(usedCommand.permissions.client) };
 			}
 
 			if (!hasPerms.maybe) return interaction.reply({

@@ -10,6 +10,7 @@ export default {
 		description: 'Would you like to make your configuration private?',
 		type: 5,
 	}],
+
 	run: async (client: CustomClient, interaction: CommandInteraction) => {
 		const hidden: boolean = (interaction.options as CommandInteractionOptionResolver).getBoolean('hidden') as boolean;
 		await interaction.deferReply({ ephemeral: hidden ?? false });
