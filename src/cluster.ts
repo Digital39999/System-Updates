@@ -24,7 +24,6 @@ const client: CustomClient = new Discord.Client({
 	},
 	intents: [
 		GatewayIntentBits.Guilds,
-		GatewayIntentBits.GuildMembers,
 	],
 	makeCache: Options.cacheWithLimits({
 		AutoModerationRuleManager: 0,
@@ -32,7 +31,7 @@ const client: CustomClient = new Discord.Client({
 		BaseGuildEmojiManager: 0,
 		GuildEmojiManager: 0,
 		GuildMemberManager: {
-			maxSize: 0,
+			maxSize: 1,
 			keepOverLimit: (member) => member.id === config.bot.id,
 		},
 		GuildBanManager: 0,

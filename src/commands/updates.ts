@@ -1,7 +1,6 @@
 import { CommandInteraction, CommandInteractionOptionResolver, PermissionsString, StringSelectMenuInteraction, TextChannel } from 'discord.js';
 import { CH, CustomClient, ExtendedHandlerOptions, GuildStructureType, SlashCommandsType } from '../data/typings';
 import { createEmoji, errorHandlerMenu, quickCollector } from '../modules/utils';
-import getEmojis from '../data/emojis';
 
 export default {
 	name: 'updates',
@@ -28,11 +27,11 @@ export default {
 
 		const channel = (interaction.options as CommandInteractionOptionResolver).getChannel('channel') as TextChannel;
 		if (!channel) return interaction.editReply({
-			content: getEmojis('fromMyServer.error') + ' • No channel was provided.',
+			content: client.emoji?.fromMyServer.warn + ' • No channel was provided.',
 		});
 
 		if (!interaction.guild?.members.me?.permissionsIn(channel.id).has(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis'])) return interaction.editReply({
-			content: `${getEmojis('fromMyServer.warn')} • Missing permissions (<#${channel.id}>): ${interaction.guild?.members.me?.permissionsIn(channel.id).missing(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis'])?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`,
+			content: `${client.emoji?.fromMyServer.warn} • Missing permissions (<#${channel.id}>): ${interaction.guild?.members.me?.permissionsIn(channel.id).missing(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis'])?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`,
 		});
 
 		await updatesHandlerExtended({
@@ -60,7 +59,7 @@ async function updatesHandlerExtended({ client, interaction, slashData }: Extend
 	const options = client.functions?.selectOptions(listOfItemsThatHaveChannel);
 
 	const missingPerms = interaction.guild?.members.me?.permissionsIn(slashData.channelId).missing(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis']);
-	if ((missingPerms?.length || 0) > 0) perms = `${getEmojis('fromMyServer.warn')} Missing permissions (<#${slashData.channelId}>): ${missingPerms?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`;
+	if ((missingPerms?.length || 0) > 0) perms = `${client.emoji?.fromMyServer.warn} Missing permissions (<#${slashData.channelId}>): ${missingPerms?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`;
 
 	await quickCollector(interaction, {
 		embeds: [{
@@ -141,7 +140,7 @@ async function updatesHandlerExtended({ client, interaction, slashData }: Extend
 				await client._data?.updateData({ guild: interaction.guildId as string }, { channels: slashData?.channels });
 
 				await interaction.editReply({
-					content: getEmojis('fromMyServer.correct') + ' • Successfully exited the menu.',
+					content: client.emoji?.fromMyServer.correct + ' • Successfully exited the menu.',
 					components: [], embeds: [],
 				}).catch(() => null);
 
