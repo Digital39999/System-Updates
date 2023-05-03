@@ -5,81 +5,112 @@ import config from '../data/config';
 import LoggerModule from './logger';
 import WebSocket from 'ws';
 
-export default class GatewayClient {
+export type EventTypes = StripeEvents | 'systemMessage';
+export type MessageTypes = 'shutdown' | 'restart' | 'auth' | 'requireReply' | 'eval' | 'raw';
+export type StripeEvents = 'started' | 'ended' | 'canceled' | 'unpaid' | 'other' | 'oneTimePaid';
+export type BaseMessage = { type: MessageTypes; subType?: EventTypes; data: object | boolean | string | number; key?: string; };
+
+abstract class BaseGatewayClient {
 	private socket?: WebSocket;
 	private lastHeartbeat?: number;
 	private reconectInterval?: NodeJS.Timeout;
 	private heartbeatInterval?: NodeJS.Timeout;
+	private reconnectTries: number;
+
+	// Add custom functions, and continue in extending class.
+	abstract handleReply(message: BaseMessage): void;
 
 	constructor() {
+		this.connect();
+		this.reconnectTries = 0;
+	}
+
+	/* ----------------------------------- Internal ----------------------------------- */
+
+	public connect() {
 		try {
-			this.socket = new WebSocket(config.gateway.url, { protocolVersion: 13 });
-			this.connect();
+			this.socket = new WebSocket(config.gateway.url);
+			this.loadConnection();
 		} catch (error) {
-			LoggerModule('Gateway', 'Failed to connect to the gateway server.\n', 'red');
+			LoggerModule('Gateway', 'Failed to reconnect to the gateway server.\n', 'red');
 		}
 	}
 
 	private tryReconnect() {
+		this.socket?.removeAllListeners();
 		this.reconectInterval = setInterval(() => {
-			try {
-				this.socket = new WebSocket(config.gateway.url, { protocolVersion: 13 });
-				this.connect();
-			} catch (error) {
-				LoggerModule('Gateway', 'Failed to reconnect to the gateway server.\n', 'red');
-			}
-		}, 10000); // 10 seconds
+			if (this.reconnectTries > 3) {
+				clearInterval(this.reconectInterval);
+				return LoggerModule('Gateway', 'Failed to reconnect 3 times, reconnect menually.\n', 'red');
+			} else this.reconnectTries++;
+
+			this.connect();
+		}, 30000); // 30 seconds
 	}
 
-	private connect() {
-		this.socket?.on('open', () => this.socket?.send(JSON.stringify({ type: 'auth', data: config.gateway.key })));
+	private loadConnection() {
+		this.socket?.on('open', () => this.socket?.send(JSON.stringify({ type: 'auth', key: config.gateway.key })));
 		this.loadHeartbeat();
 
 		this.socket?.on('message', (message) => {
-			const { type, data } = JSON.parse(message.toString());
+			const { type, data, key, subType } = JSON.parse(message.toString()) as BaseMessage;
 
-			if (type === 'heartbeat') this.lastHeartbeat = Date.now();
-			else if (type === 'eval') this.handleEval(data);
-			else if (type === 'restart') this.handleEval('process.exit(0)');
-			else if (type === 'systemMessage') this.processSystemMessage(data);
-			else if (type === 'auth') {
-				if (data) LoggerModule('Gateway', 'Successfully authenticated to the gateway server.\n', 'magenta');
-				else LoggerModule('Gateway', 'Failed to authenticate to the gateway server.\n', 'red');
+			switch (type) {
+				case 'shutdown': case 'restart': {
+					process.exit(0);
+					break; // eslint why?
+				}
+				case 'auth': {
+					if (data) LoggerModule('Gateway', 'Successfully authenticated to the gateway server.\n', 'magenta');
+					else LoggerModule('Gateway', 'Failed to authenticate to the gateway server.\n', 'red');
 
-				if (this.reconectInterval) {
-					clearInterval(this.reconectInterval);
-					this.reconectInterval = undefined;
+					if (this.reconectInterval) {
+						clearInterval(this.reconectInterval);
+						this.reconectInterval = undefined;
+					}
+
+					break;
+				}
+				case 'eval': {
+					this.handleEval(JSON.stringify(data));
+
+					break;
+				}
+				case 'requireReply': {
+					this.handleReply({ type, data, subType });
+					this.socket?.send(JSON.stringify({ type: 'requireReply', data: true, key }));
+
+					break;
 				}
 			}
 		});
 
+		this.socket?.on('pong', () => (this.lastHeartbeat = Date.now()));
+
+		this.socket?.on('error', (error) => {
+			LoggerModule('Gateway', `An error has occurred while connecting to the gateway server.\n${error}`, 'red');
+			this.tryReconnect();
+		});
+
 		this.socket?.on('close', () => {
 			LoggerModule('Gateway', 'Gateway connection closed.\n', 'red');
-			setTimeout(() => this.tryReconnect(), 5000); // 5 seconds
-			this.socket?.removeAllListeners();
+			this.tryReconnect();
 
 			if (this.heartbeatInterval) {
 				clearInterval(this.heartbeatInterval);
 				this.heartbeatInterval = undefined;
 			}
 		});
-
-		this.socket?.on('error', (error) => {
-			LoggerModule('Gateway', `An error has occurred while connecting to the gateway server.\n${error}`, 'red');
-			setTimeout(() => this.connect(), 10000); // 10 seconds
-			this.socket?.removeAllListeners();
-		});
 	}
+
 
 	private loadHeartbeat() {
 		this.lastHeartbeat = Date.now();
 
 		this.heartbeatInterval = setInterval(() => {
-			this.socket?.send(JSON.stringify({ type: 'heartbeat' }));
+			this.socket?.ping();
 
-			if (this.lastHeartbeat && Date.now() - this.lastHeartbeat > 90000) { // 1 minute 30 seconds
-				this.socket?.close();
-			}
+			if (this.lastHeartbeat && Date.now() - this.lastHeartbeat > 90000) this.socket?.close(); // 1 minute 30 seconds
 		}, 45000); // 45 seconds
 	}
 
@@ -87,8 +118,18 @@ export default class GatewayClient {
 		const result = await evalExecute(code);
 		this.socket?.send(JSON.stringify({ type: 'eval', data: result }));
 	}
+}
 
-	private processSystemMessage(data: { content: string; embeds: APIEmbed[]; files: string[]; channelId: string; }) {
-		sendCrossPost(data);
+export default class GatewayClient extends BaseGatewayClient {
+	constructor() {
+		super();
+	}
+
+	async handleReply(message: BaseMessage) {
+		switch (message.subType) {
+			case 'systemMessage': {
+				sendCrossPost(message.data as { content: string; embeds: APIEmbed[]; files: string[]; channelId: string; });
+			}
+		}
 	}
 }
