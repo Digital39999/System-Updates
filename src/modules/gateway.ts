@@ -1,37 +1,48 @@
 import { sendCrossPost } from './crosspost';
 import { evalExecute } from '../index';
 import { APIEmbed } from 'discord.js';
-import config from '../data/config';
 import LoggerModule from './logger';
+import config from '../data/config';
 import WebSocket from 'ws';
 
 export type EventTypes = StripeEvents | 'systemMessage';
-export type MessageTypes = 'shutdown' | 'restart' | 'auth' | 'requireReply' | 'eval' | 'raw';
 export type StripeEvents = 'started' | 'ended' | 'canceled' | 'unpaid' | 'other' | 'oneTimePaid';
-export type BaseMessage = { type: MessageTypes; subType?: EventTypes; data: object | boolean | string | number; key?: string; };
+export type MessageTypes = 'shutdown' | 'restart' | 'auth' | 'requireReply' | 'stripeEvent' | 'eval' | 'raw';
+export type BaseMessage = { type: MessageTypes; data: { eventData: object | string | boolean | number; eventType?: EventTypes; }; key?: string; };
 
 abstract class BaseGatewayClient {
 	private socket?: WebSocket;
 	private lastHeartbeat?: number;
 	private reconectInterval?: NodeJS.Timeout;
 	private heartbeatInterval?: NodeJS.Timeout;
-	private reconnectTries: number;
+	private reconnect: {
+		tries: number;
+		isActive: boolean;
+	};
 
 	// Add custom functions, and continue in extending class.
 	abstract handleReply(message: BaseMessage): void;
 
 	constructor() {
 		this.connect();
-		this.reconnectTries = 0;
+		this.reconnect = {
+			tries: 0,
+			isActive: false,
+		};
 	}
 
 	/* ----------------------------------- Internal ----------------------------------- */
 
 	public connect() {
 		try {
-			this.socket = new WebSocket(config.gateway.url);
+			this.socket = new WebSocket(config.gateway.url, {
+				headers: {
+					'Authorization': config.gateway.key,
+				},
+			});
+
 			this.loadConnection();
-		} catch (error) {
+		} catch {
 			LoggerModule('Gateway', 'Failed to reconnect to the gateway server.\n', 'red');
 		}
 	}
@@ -39,29 +50,27 @@ abstract class BaseGatewayClient {
 	private tryReconnect() {
 		this.socket?.removeAllListeners();
 		this.reconectInterval = setInterval(() => {
-			if (this.reconnectTries > 3) {
+			if (this.reconnect.tries > 3) {
 				clearInterval(this.reconectInterval);
 				return LoggerModule('Gateway', 'Failed to reconnect 3 times, reconnect menually.\n', 'red');
-			} else this.reconnectTries++;
+			} else this.reconnect.tries++;
 
 			this.connect();
 		}, 30000); // 30 seconds
 	}
 
 	private loadConnection() {
-		this.socket?.on('open', () => this.socket?.send(JSON.stringify({ type: 'auth', key: config.gateway.key })));
 		this.loadHeartbeat();
 
 		this.socket?.on('message', (message) => {
-			const { type, data, key, subType } = JSON.parse(message.toString()) as BaseMessage;
-
+			const { type, data, key } = JSON.parse(message.toString()) as BaseMessage;
 			switch (type) {
 				case 'shutdown': case 'restart': {
 					process.exit(0);
 					break; // eslint why?
 				}
 				case 'auth': {
-					if (data) LoggerModule('Gateway', 'Successfully authenticated to the gateway server.\n', 'magenta');
+					if (data.eventData) LoggerModule('Gateway', 'Successfully authenticated to the gateway server.\n', 'magenta');
 					else LoggerModule('Gateway', 'Failed to authenticate to the gateway server.\n', 'red');
 
 					if (this.reconectInterval) {
@@ -72,13 +81,13 @@ abstract class BaseGatewayClient {
 					break;
 				}
 				case 'eval': {
-					this.handleEval(JSON.stringify(data));
+					this.handleEval(data.eventData, key);
 
 					break;
 				}
-				case 'requireReply': {
-					this.handleReply({ type, data, subType });
-					this.socket?.send(JSON.stringify({ type: 'requireReply', data: true, key }));
+				case 'requireReply': case 'stripeEvent': {
+					this.handleReply({ type, data });
+					this.socket?.send(JSON.stringify({ type: 'requireReply', data: { eventData: true }, key } as BaseMessage)); // Send reply as confirmation.
 
 					break;
 				}
@@ -89,12 +98,12 @@ abstract class BaseGatewayClient {
 
 		this.socket?.on('error', (error) => {
 			LoggerModule('Gateway', `An error has occurred while connecting to the gateway server.\n${error}`, 'red');
-			this.tryReconnect();
+			if (!this.reconnect.isActive) this.tryReconnect();
 		});
 
 		this.socket?.on('close', () => {
 			LoggerModule('Gateway', 'Gateway connection closed.\n', 'red');
-			this.tryReconnect();
+			if (!this.reconnect.isActive) this.tryReconnect();
 
 			if (this.heartbeatInterval) {
 				clearInterval(this.heartbeatInterval);
@@ -114,9 +123,9 @@ abstract class BaseGatewayClient {
 		}, 45000); // 45 seconds
 	}
 
-	private async handleEval(code: string) {
+	private async handleEval(code: unknown, key?: string) {
 		const result = await evalExecute(code);
-		this.socket?.send(JSON.stringify({ type: 'eval', data: result }));
+		this.socket?.send(JSON.stringify({ type: 'eval', data: result, key }));
 	}
 }
 
@@ -126,9 +135,9 @@ export default class GatewayClient extends BaseGatewayClient {
 	}
 
 	async handleReply(message: BaseMessage) {
-		switch (message.subType) {
+		switch (message.data.eventType) {
 			case 'systemMessage': {
-				sendCrossPost(message.data as { content: string; embeds: APIEmbed[]; files: string[]; channelId: string; });
+				sendCrossPost(message.data.eventData as { content: string; embeds: APIEmbed[]; files: string[]; channelId: string; });
 			}
 		}
 	}

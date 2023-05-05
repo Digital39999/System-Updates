@@ -69,9 +69,9 @@ export function catchError(error: Error) {
 	console.error(error);
 }
 
-export async function evalExecute(code: string) {
+export async function evalExecute(code: unknown) {
 	try {
-		const result = function (str: string) { return eval(str); }.call(manager, code);
+		const result = function (str: string) { return eval(str); }.call(manager, code as string);
 		return JSON.stringify(result, null, 5);
 	} catch (error) {
 		if (typeof error === 'string') return error;
