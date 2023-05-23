@@ -1,7 +1,7 @@
 import Discord, { GatewayIntentBits, ActivityType, APISelectMenuOption, Options } from 'discord.js';
 import { ClusterClient, getInfo } from 'discord-hybrid-sharding';
 import { CustomCacheFunctions } from './modules/utils';
-import { CustomClient } from './data/typings';
+import { CH, CustomClient } from './data/typings';
 import LoggerModule from './modules/logger';
 import getEmojis from './data/emojis';
 import config from './data/config';
@@ -115,30 +115,26 @@ client.functions = {
 			default: return 'Unknown Channel';
 		}
 	},
-	selectOptions: (SlashChannels: string[]) => {
-		const options: APISelectMenuOption[] = [];
-
-		client?.channelArray?.forEach((key: string) => {
-			options.push({
+	selectOptions: (preselected: string[]) => {
+		return client?.channelArray?.map((key) => {
+			return {
 				label: client.functions?.channelName(key) || key,
 				value: key,
-				default: !!SlashChannels?.includes(key),
+				default: preselected?.includes(key),
 				emoji: {
 					name: client.emoji?.main.icons_enable?.split(':')[1],
 					id: client.emoji?.main.icons_enable?.split(':')[2].replace('>', ''),
 				},
-			});
-		});
-
-		return options;
+			} as APISelectMenuOption;
+		}) || [];
 	},
 	createArray: () => {
-		const array: string[] = [];
+		const array: CH[] = [];
 
-		Object.keys(client.config?.follow_channels as { [x: string]: string }).forEach((key) => {
+		for (const [key] of (Object.entries((client?.config?.follow_channels || {})) as unknown as [CH, string[]][])) {
 			if (key === 'testing_channel' && client.config?.dev.mode) array.push(key);
 			else if (key !== 'testing_channel') array.push(key);
-		});
+		}
 
 		return array;
 	},

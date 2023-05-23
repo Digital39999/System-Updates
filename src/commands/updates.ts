@@ -47,16 +47,10 @@ async function updatesHandlerExtended({ client, interaction, slashData }: Extend
 	let list = '', perms = '';
 
 	if (!slashData?.channels) slashData.channels = DBGuild?.channels || {} as GuildStructureType['channels'];
-	const listOfItemsThatHaveChannel: string[] = [], listOfItemsThatDontHaveChannel: string[] = [];
+	const tagsThatWillBeSentIntoChannel: CH[] = (Object.keys(slashData?.channels || {}) as CH[]).filter((key: CH) => (slashData?.channels?.[key]?.includes(slashData?.channelId)));
+	if (tagsThatWillBeSentIntoChannel?.length > 0) tagsThatWillBeSentIntoChannel.map((tag: CH) => (list += `• ${client.functions?.channelName(tag)}\n`));
 
-	Object.entries(slashData.channels as GuildStructureType['channels'] || {})?.forEach(([key, value]: [string, string[]]) => {
-		if (value?.includes(slashData?.channelId)) listOfItemsThatHaveChannel.push(key);
-		if (value?.includes(slashData?.channelId)) listOfItemsThatDontHaveChannel.push(key);
-
-		if (slashData?.channels?.[key as CH]?.includes(slashData?.channelId)) list += `+ ${client.functions?.channelName(key)}\n`;
-	});
-
-	const options = client.functions?.selectOptions(listOfItemsThatHaveChannel);
+	const options = client.functions?.selectOptions(tagsThatWillBeSentIntoChannel) || [];
 
 	const missingPerms = interaction.guild?.members.me?.permissionsIn(slashData.channelId).missing(['ViewChannel', 'SendMessages', 'EmbedLinks', 'ReadMessageHistory', 'AttachFiles', 'UseExternalEmojis']);
 	if ((missingPerms?.length || 0) > 0) perms = `${client.emoji?.fromMyServer.warn} Missing permissions (<#${slashData.channelId}>): ${missingPerms?.map((perm: PermissionsString) => `\`${perm}\``).join(', ')}.`;

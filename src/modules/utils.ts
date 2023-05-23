@@ -20,7 +20,7 @@ export async function requestDataFromManager<T extends ActionTypes>(action: T, i
 	}).catch((): null => null) as { password: string; data: Internal; } | null;
 
 	try {
-		return JSON.parse(data as unknown as string) as unknown as Internal;
+		return JSON.parse(data?.data as unknown as string) as unknown as Internal;
 	} catch (e) {
 		return null;
 	}

@@ -33,13 +33,8 @@ export default {
 			Array.from(client?.slashCommands?.data?.values() || []).map((command: SlashCommandsType) => {
 				const sendData: Partial<SlashCommandsType> = { name: command.name };
 
-				if (command?.context) {
-					interactionsData.push({
-						name: command.name,
-						type: command.type,
-						description: command.description,
-					});
-				} else if (command?.register !== false) {
+				if (command?.context) interactionsData.push({ name: command.name, type: command.type, description: command.description });
+				else if (command?.register !== false) {
 					if (command.id) sendData.id = command.id;
 					if (command.type) sendData.type = command.type;
 					if (command.name) sendData.name = command.name;

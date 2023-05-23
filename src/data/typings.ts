@@ -49,7 +49,7 @@ export interface CustomClient extends Client {
 	functions?: {
 		channelName: (channel: string) => string;
 		selectOptions: (slashChannels: string[]) => APISelectMenuOption[];
-		createArray: () => string[];
+		createArray: () => CH[];
 		getCommand: (name: string) => string;
 	}
 }

@@ -35,6 +35,11 @@ manager.extend(new HeartbeatManager({
 	maxMissedHeartbeats: 5,
 }));
 
+manager.hooks.constructClusterArgs = (cluster, args) => {
+	return [...args, '--clusterId ' + cluster.id, `--shards ${cluster.shardList.join(',')}`];
+};
+
+
 /* ----------------------------------- Database ----------------------------------- */
 
 async function mongoCheck(manager: CustomManager) {
@@ -91,6 +96,28 @@ manager.followArray = Object.entries(config.follow_channels).map(([key, value]) 
 	return { key: key as keyof ConfigType['follow_channels'], value: value as string };
 });
 
+manager.on('clientRequest', async (message) => {
+	if (message?.raw?.cachePassword) {
+		const messageRaw = message.raw as { cachePassword: string; actionType: ActionTypes; inputDataOptions: Partial<GuildStructureType>; arg1: boolean; arg2: boolean; dataToUpdate: Partial<GuildStructureType>; };
+		let outputData = null;
+
+		switch (messageRaw.actionType as ActionTypes) {
+			case 'createData': { outputData = await manager._data?.createData(messageRaw.inputDataOptions); break; }
+			case 'getData': { outputData = await manager._data?.getData(messageRaw.inputDataOptions, messageRaw.arg1); break; }
+			case 'deleteData': { outputData = await manager._data?.deleteData(messageRaw.inputDataOptions, messageRaw.arg1); break; }
+			case 'updateData': { outputData = await manager._data?.updateData(messageRaw.inputDataOptions, messageRaw.dataToUpdate); break; }
+			case 'getAllData': { outputData = await manager._data?.getAllData(messageRaw.inputDataOptions, messageRaw.arg1, messageRaw.arg2); break; }
+		}
+
+		try {
+			return (message as object & { reply: (data: { password: string, data: string | null }) => void }).reply({ password: messageRaw.cachePassword, data: JSON.stringify((typeof outputData === 'object' && (outputData as unknown as { _id: ObjectId })?._id) ? convertObjectIdsToStrings(outputData) : outputData) });
+		} catch (error) {
+			LoggerModule('Manager', 'Error while trying to send data.', 'red'); console.error(error);
+			return (message as object & { reply: (data: { password: string, data: string | null }) => void }).reply({ password: messageRaw.cachePassword, data: null });
+		}
+	}
+});
+
 /* ----------------------------------- Clusters ----------------------------------- */
 
 async function loadClusters(manager: CustomManager) {
@@ -133,28 +160,6 @@ async function loadClusters(manager: CustomManager) {
 
 			if (!clusterDiedCounter[cluster.id]) clusterDiedCounter[cluster.id] = 0; clusterDiedCounter[cluster.id]++;
 			if (clusterDiedCounter[cluster.id] < 3) await cluster.respawn().catch(() => LoggerModule('Clusters', `Failed to respawn cluster ${cluster.id}.`, 'red'));
-		});
-
-		cluster.on('message', async (message) => {
-			if ((message as object & { raw: { cachePassword: string }})?.raw?.cachePassword) {
-				const messageRaw = (message as object & { raw: { cachePassword: string; actionType: ActionTypes; inputDataOptions: Partial<GuildStructureType>; arg1: boolean; arg2: boolean; dataToUpdate: Partial<GuildStructureType>; }}).raw;
-				let outputData = null;
-
-				switch (messageRaw.actionType as ActionTypes) {
-					case 'createData': { outputData = await manager._data?.createData(messageRaw.inputDataOptions); break; }
-					case 'getData': { outputData = await manager._data?.getData(messageRaw.inputDataOptions, messageRaw.arg1); break; }
-					case 'deleteData': { outputData = await manager._data?.deleteData(messageRaw.inputDataOptions, messageRaw.arg1); break; }
-					case 'updateData': { outputData = await manager._data?.updateData(messageRaw.inputDataOptions, messageRaw.dataToUpdate); break; }
-					case 'getAllData': { outputData = await manager._data?.getAllData(messageRaw.inputDataOptions, messageRaw.arg1, messageRaw.arg2); break; }
-				}
-
-				try {
-					return (message as object & { reply: (data: { password: string, data: string | null }) => void }).reply({ password: messageRaw.cachePassword, data: JSON.stringify((typeof outputData === 'object' && (outputData as unknown as { _id: ObjectId })?._id) ? convertObjectIdsToStrings(outputData) : outputData) });
-				} catch (error) {
-					LoggerModule('Manager', 'Error while trying to send data.', 'red'); console.error(error);
-					return (message as object & { reply: (data: { password: string, data: string | null }) => void }).reply({ password: messageRaw.cachePassword, data: null });
-				}
-			}
 		});
 	});
 
